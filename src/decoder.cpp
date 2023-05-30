@@ -35,6 +35,15 @@ Header* readJPG(const std::string& filename)
     while (header->valid) {
         if (!inFile) {
             std::cout << "Error - file ended prematurely --" << filename << "--\n";
+            header->valid;
+            inFile.close();
+            return header;
+        }
+        if (first != 0xFF) {
+            std::cout << "Error - Marker was expected --" << filename << "--\n";
+            header->valid;
+            inFile.close();
+            return header;
         }
     }
 
