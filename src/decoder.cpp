@@ -43,6 +43,12 @@ void readStartOfFrame(std::ifstream& inFile, Header* header) {
 
     for (int i = 0; i < header->numOfComponents; i++) {
         byte componentID = inFile.get();
+        if (componentID == 0) {     // component id is illegally start from 0, allow this
+            header->zeroBased = true;   // check this flag in the future to add 1 to componentIDs
+        }
+        if (header->zeroBased) {
+            componentID += 1;
+        }
         if (componentID == 4 || componentID == 5) {
             std::cout << "Error - YIQ format not supported\n";
             header->valid = false;

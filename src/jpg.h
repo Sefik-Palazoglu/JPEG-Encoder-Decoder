@@ -113,6 +113,7 @@ struct Header {
     uint restartInterval = 0;   // 0 means never restart
 
     ColorComponent colorComponents[3];
+    bool zeroBased = false;     // componentID base (default is starts from 1, not 0)
     bool valid = true;
 };
 
