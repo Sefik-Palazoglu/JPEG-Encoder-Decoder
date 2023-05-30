@@ -95,6 +95,13 @@ struct QuantizationTable {
     bool set = false;
 };
 
+struct ColorComponent {
+    byte horizontalSamplingFactor = 1;
+    byte verticalSamplingFactor = 1;
+    byte quantizationTableID = 0;
+    bool used = false;
+};
+
 struct Header {
     QuantizationTable quantizationTables[4];
 
@@ -102,6 +109,8 @@ struct Header {
     uint height = 0;
     uint width = 0;
     uint numOfComponents = 0;
+
+    ColorComponent colorComponents[3];
     bool valid = true;
 };
 
