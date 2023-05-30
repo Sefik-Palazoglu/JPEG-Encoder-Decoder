@@ -1,6 +1,8 @@
 #ifndef JPG_H
 #define JPG_H
 
+#include <vector>
+
 typedef unsigned char byte;
 typedef unsigned int uint;
 
@@ -130,6 +132,8 @@ struct Header {
     ColorComponent colorComponents[3];
     bool zeroBased = false;     // componentID base (default is starts from 1, not 0)
     bool valid = true;
+
+    std::vector<byte> huffmanData;
 };
 
 const byte zigZagMap[] = {
