@@ -154,6 +154,59 @@ void readComment(std::ifstream& inFile, Header* header) {
     }
 }
 
+void readHuffmanTable(std::ifstream& inFile, Header* header) {
+    std::cout << "Reading DHT marker\n";
+    int length = ((inFile.get() << 8) + inFile.get());
+    std::cout << "length: " << (uint)length << '\n';
+    length -= 2;
+
+    while (length > 0) {
+        byte tableInfo = inFile.get();
+
+        byte tableID = tableInfo & 0x0F;
+        tableID = (tableInfo & 0x0F);
+        bool ACTable = tableInfo >> 4;
+
+        if (tableID > 3) {
+            std::cout << "Error - Table id cannot be greater than 3. tableID: " << (uint)tableID << "\n";
+            header->valid = false;
+            return;
+        }
+
+        HuffmanTable* hTable;
+        if (ACTable) {
+            hTable = &header->huffmanACTables[tableID];
+        } else {    // DCTable
+            hTable = &header->huffmanDCTables[tableID];
+        }
+        hTable->set = true;
+
+        hTable->offsets[0] = 0;
+        uint allSymbols = 0;        // running sum of symbol count
+        for (int i = 1; i <= 16; i++) {
+            allSymbols += inFile.get();
+            hTable->offsets[i] = allSymbols;
+        }
+
+        if (allSymbols > 162) {
+            std::cout << "Error - Too many symbols in Huffman Table\n";
+            header->valid = false;
+            return;
+        }
+
+        for (int i = 0; i < allSymbols; i++) {
+            hTable->symbols[i] = inFile.get();
+        }
+
+        length -= (1 + 16 + allSymbols);      // subtract read bytes 1: TableInfo, 16: symbolCounts, allSymbols: symbols
+    }
+    
+    if (length != 0) {
+        std::cout << "Error - DHT invalid\n";
+        return;
+    }
+}
+
 void readRestartInterval(std::ifstream& inFile, Header* header) {
     std::cout << "Reading DRI marker\n";
     uint length = ((inFile.get() << 8) + inFile.get());
@@ -197,6 +250,36 @@ void printHeader(const Header* const header) {
         std::cout << "verticalSamplingFactor: " << (uint)header->colorComponents[i].verticalSamplingFactor << "\n";
         std::cout << "quantizationTableID: " << (uint)header->colorComponents[i].quantizationTableID << "\n";
     }
+    std::cout << "DHT =====================\n";
+    std::cout << "DC Tables :\n";
+    for (int i = 0; i < 4; i++) {
+        if (header->huffmanDCTables[i].set) {
+            std::cout << "Table ID: " << i << '\n';
+            std::cout << "Symbols:\n";
+            for (int j = 0; j < 16; j++) {  // for all possible 16 lengths
+                std::cout << (j + 1) << ": ";
+                for (int k = header->huffmanDCTables[i].offsets[j]; k < header->huffmanDCTables[i].offsets[j + 1]; k++) {
+                    std::cout << std::hex << (uint)header->huffmanDCTables[i].symbols[k] << ' ' << std::dec;
+                }
+                std::cout << '\n';
+            }
+        }
+    }
+
+    std::cout << "AC Tables :\n";
+    for (int i = 0; i < 4; i++) {
+        if (header->huffmanACTables[i].set) {
+            std::cout << "Table ID: " << i << '\n';
+            std::cout << "Symbols:\n";
+            for (int j = 0; j < 16; j++) {  // for all possible 16 lengths
+                std::cout << (j + 1) << ": ";
+                for (int k = header->huffmanACTables[i].offsets[j]; k < header->huffmanACTables[i].offsets[j + 1]; k++) {
+                    std::cout << std::hex << (uint)header->huffmanACTables[i].symbols[k] << ' ' << std::dec;
+                }
+                std::cout << '\n';
+            }
+        }
+    }
 
     std::cout << "Restart Interval: " << (uint)header->restartInterval << "\n";
 }
@@ -227,6 +310,7 @@ Header* readJPG(const std::string& filename)
         return header;
     }
 
+    int huffmanTablesRead = 0;
     // read 2 bytes
     first = inFile.get();
     second = inFile.get();
@@ -243,11 +327,17 @@ Header* readJPG(const std::string& filename)
             inFile.close();
             return header;
         }
+        if (huffmanTablesRead == 4) {
+            break;
+        }
 
-        if (second == SOF0) {
+        if (second == DHT) {
+            readHuffmanTable(inFile, header);
+            huffmanTablesRead++;
+        }
+        else if (second == SOF0) {
             header->frameType = SOF0;
             readStartOfFrame(inFile, header);
-            break;
         } else if (second == COM) {
             readComment(inFile, header);
         } else if (second == DQT) {
