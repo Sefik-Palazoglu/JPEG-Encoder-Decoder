@@ -90,4 +90,8 @@ const byte JPG13 = 0xFD;
 const byte COM = 0xFE;
 const byte TEM = 0x01;
 
+struct Header {
+
+};
+
 #endif  // JPG_H
