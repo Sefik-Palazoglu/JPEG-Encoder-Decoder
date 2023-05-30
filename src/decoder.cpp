@@ -148,6 +148,20 @@ void readComment(std::ifstream& inFile, Header* header) {
     }
 }
 
+void readRestartInterval(std::ifstream& inFile, Header* header) {
+    std::cout << "Reading DRI marker\n";
+    uint length = ((inFile.get() << 8) + inFile.get());
+    std::cout << "length: " << (uint)length << '\n';
+
+    header->restartInterval = ((inFile.get() << 8) + inFile.get());
+
+    if (length != 4) {
+        std::cout << "Error - invalid DRI Marker\n";
+        header->valid = false;
+        return;
+    }
+}
+
 void printHeader(const Header* const header) {
     if (header == nullptr) return;
     if (header->valid == false) return;
@@ -177,6 +191,8 @@ void printHeader(const Header* const header) {
         std::cout << "verticalSamplingFactor: " << (uint)header->colorComponents[i].verticalSamplingFactor << "\n";
         std::cout << "quantizationTableID: " << (uint)header->colorComponents[i].quantizationTableID << "\n";
     }
+
+    std::cout << "Restart Interval: " << (uint)header->restartInterval << "\n";
 }
 
 Header* readJPG(const std::string& filename)
@@ -230,6 +246,8 @@ Header* readJPG(const std::string& filename)
             readComment(inFile, header);
         } else if (second == DQT) {
             readQuantizationTable(inFile, header);
+        } else if (second == DRI) {
+            readRestartInterval(inFile, header);
         } else if (APP0 <= second && second <= APP15) {
             readAPPN(inFile, header);
         }

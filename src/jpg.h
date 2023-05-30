@@ -110,6 +110,8 @@ struct Header {
     uint width = 0;
     uint numOfComponents = 0;
 
+    uint restartInterval = 0;   // 0 means never restart
+
     ColorComponent colorComponents[3];
     bool valid = true;
 };
