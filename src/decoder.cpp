@@ -11,6 +11,13 @@ Header* readJPG(const std::string& filename)
         std::cout << "Error, input file cannot be opened --" << filename << "--\n";
         return nullptr;
     }
+
+    Header* header = new (std::nothrow) Header;
+    if (header == nullptr) {
+        std::cout << "Error, memory could not be allocated for Header.\n";
+        inFile.close();
+        return nullptr;
+    }
     return nullptr;
 }
 
