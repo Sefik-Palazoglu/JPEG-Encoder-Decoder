@@ -1,5 +1,5 @@
 all:
-	@mkdir bin -p
+	mkdir -p bin
 	g++ -std=c++11 -o bin/decoder src/decoder.cpp
 
 clean:
