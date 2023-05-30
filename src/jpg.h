@@ -105,6 +105,8 @@ struct ColorComponent {
     byte horizontalSamplingFactor = 1;
     byte verticalSamplingFactor = 1;
     byte quantizationTableID = 0;
+    byte huffmanDCTableID = 0;
+    byte huffmanACTableID = 0;
     bool used = false;
 };
 
@@ -117,6 +119,11 @@ struct Header {
     uint height = 0;
     uint width = 0;
     uint numOfComponents = 0;
+
+    byte startOfSelection = 0;
+    byte endOfSelection = 63;
+    byte successiveApproximationHigh = 0;
+    byte successiveApproximationLow = 0;
 
     uint restartInterval = 0;   // 0 means never restart
 
