@@ -1,6 +1,6 @@
 all:
 	mkdir -p bin
-	g++ -std=c++11 -o bin/decoder src/decoder.cpp
+	g++ -std=c++11 -o bin/decoder.out src/decoder.cpp
 
 clean:
-	rm bin/decoder
+	rm bin/decoder.out
