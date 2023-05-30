@@ -29,6 +29,15 @@ Header* readJPG(const std::string& filename)
         return header;
     }
 
+    // read 2 bytes
+    byte first = inFile.get();
+    byte second = inFile.get();
+    while (header->valid) {
+        if (!inFile) {
+            std::cout << "Error - file ended prematurely --" << filename << "--\n";
+        }
+    }
+
     return header;
 }
 
