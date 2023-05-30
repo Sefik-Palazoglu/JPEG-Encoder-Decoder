@@ -91,7 +91,7 @@ const byte COM = 0xFE;
 const byte TEM = 0x01;
 
 struct Header {
-
+    bool valid = true;
 };
 
 #endif  // JPG_H

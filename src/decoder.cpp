@@ -18,7 +18,18 @@ Header* readJPG(const std::string& filename)
         inFile.close();
         return nullptr;
     }
-    return nullptr;
+
+    // read 2 bytes
+    byte first = inFile.get();
+    byte second = inFile.get();
+    // verify
+    if (first != 0xFF || second != SOI) {
+        header->valid = false;
+        inFile.close();
+        return header;
+    }
+
+    return header;
 }
 
 int main(int argc, char** argv) 
@@ -30,6 +41,19 @@ int main(int argc, char** argv)
     for (int i = 1; i < argc; i++) {
         const std::string filename{argv[i]};
         Header* header = readJPG(filename);
+
+        if (header == nullptr) {
+            continue;
+        }
+        else if (header->valid == false) {
+            std::cout << "Error - invalid header in --" << filename << "--\n";
+            delete header;
+            continue;
+        }
+
+        // TODO: Decode Huffman Encoded Bitstream
+
+        delete header;
     }
     return 0;
 }
