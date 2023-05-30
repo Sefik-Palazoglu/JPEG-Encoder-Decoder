@@ -97,6 +97,11 @@ struct QuantizationTable {
 
 struct Header {
     QuantizationTable quantizationTables[4];
+
+    byte frameType = 0;
+    uint height = 0;
+    uint width = 0;
+    uint numOfComponents = 0;
     bool valid = true;
 };
 
