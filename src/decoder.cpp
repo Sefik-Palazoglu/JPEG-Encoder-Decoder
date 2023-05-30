@@ -3,12 +3,91 @@
 
 #include "jpg.h"
 
+void readStartOfFrame(std::ifstream& inFile, Header* header) {
+    std::cout << "Reading SOF marker\n";
+    if (header->numOfComponents != 0) {
+        std::cout << "Error - Multiple SOFs are deteceted.\n";
+        header->valid = false;
+        return;
+    }
+
+    uint length = ((inFile.get() << 8) + inFile.get());
+    std::cout << "length: " << (uint)length << '\n';
+
+    byte precision = inFile.get();
+    if (precision != 8) {
+        std::cout << "Error - Invalid precision\n";
+        header->valid = false;
+        return;
+    }
+
+    header->height = ((inFile.get() << 8) + inFile.get());
+    header->width = ((inFile.get() << 8) + inFile.get());
+    if (header->height == 0 || header->width == 0) {
+        std::cout << "Error - Invalid height or width\n";
+        header->valid = false;
+        return;
+    }
+
+    header->numOfComponents = inFile.get();
+    if (header->numOfComponents == 4) {
+        std::cout << "Error - CMYK components not supported.\n";
+        header->valid = false;
+        return; 
+    }
+    if (header->numOfComponents == 0) {
+        std::cout << "Error - 0 components not supported.\n";
+        header->valid = false;
+        return; 
+    }
+
+    for (int i = 0; i < header->numOfComponents; i++) {
+        byte componentID = inFile.get();
+        if (componentID == 4 || componentID == 5) {
+            std::cout << "Error - YIQ format not supported\n";
+            header->valid = false;
+            return; 
+        }
+        if (componentID == 0 || componentID > 3) {
+            std::cout << "Error - invalid component id\n";
+            header->valid = false;
+            return; 
+        }
+
+        // color components for Y Cr Cb format is 1, 2, 3. So we subtract 1 from those
+        ColorComponent* component = &header->colorComponents[componentID - 1];
+        if (component->used) {
+            std::cout << "Error - duplicate color component\n";
+            header->valid = false;
+            return; 
+        }
+        component->used = true;
+        byte samplingFactor = inFile.get();
+        component->horizontalSamplingFactor = samplingFactor >> 4;
+        component->verticalSamplingFactor = samplingFactor & 0x0F;
+
+        component->quantizationTableID = inFile.get();
+        if (component->quantizationTableID > 3) {
+            std::cout << "Error - invalid quantization table id for color component\n";
+            header->valid = false;
+            return; 
+        }
+    }
+
+    // check if length lines up
+    if (length - 8 - (header->numOfComponents * 3) != 0) {
+        std::cout << "Error - invalid SOF marker\n";
+        header->valid = false;
+        return; 
+    }
+
+}
+
 void readAPPN(std::ifstream& inFile, Header* header) {
     std::cout << "Reading APPN marker\n";
     uint length = ((inFile.get() << 8) + inFile.get());
     std::cout << "length: " << (uint)length << '\n';
     
-
     // length which is 2 bytes is included in length
     for (int i = 0; i < length - 2; i++) {
         inFile.get();
@@ -86,6 +165,18 @@ void printHeader(const Header* const header) {
             std::cout << "\n";
         }
     }
+
+    std::cout << "SOF ======================\n";
+    std::cout << "Frame Type 0x" << std::hex << (uint) header->frameType << std::dec << "\n";
+    std::cout << "Height: " << header->height << "\n";
+    std::cout << "Width: " << header->width << "\n";
+    std::cout << "Color Components: \n"; 
+    for (int i = 0; i < header->numOfComponents; i++) {
+        std::cout << "Component ID: " << (i + 1) << "\n";
+        std::cout << "horizontalSamplingFactor: " << (uint)header->colorComponents[i].horizontalSamplingFactor << "\n";
+        std::cout << "verticalSamplingFactor: " << (uint)header->colorComponents[i].verticalSamplingFactor << "\n";
+        std::cout << "quantizationTableID: " << (uint)header->colorComponents[i].quantizationTableID << "\n";
+    }
 }
 
 Header* readJPG(const std::string& filename)
@@ -131,16 +222,15 @@ Header* readJPG(const std::string& filename)
             return header;
         }
 
-        if (second == COM) {
-            readComment(inFile, header);
-        }
-
-        if (second == DQT) {
-            readQuantizationTable(inFile, header);
+        if (second == SOF0) {
+            header->frameType = SOF0;
+            readStartOfFrame(inFile, header);
             break;
-        }
-
-        if (APP0 <= second && second <= APP15) {
+        } else if (second == COM) {
+            readComment(inFile, header);
+        } else if (second == DQT) {
+            readQuantizationTable(inFile, header);
+        } else if (APP0 <= second && second <= APP15) {
             readAPPN(inFile, header);
         }
 
