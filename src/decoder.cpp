@@ -3,6 +3,17 @@
 
 #include "jpg.h"
 
+void readAPPN(std::ifstream& inFile, Header* header) {
+    std::cout << "Reading APPN marker\n";
+    uint length = ((inFile.get() << 8) + inFile.get());
+    
+
+    // length which is 2 bytes is included in length
+    for (int i = 0; i < length - 2; i++) {
+        inFile.get();
+    }
+}
+
 Header* readJPG(const std::string& filename)
 {
     // Open file in input and binary format
@@ -30,21 +41,29 @@ Header* readJPG(const std::string& filename)
     }
 
     // read 2 bytes
-    byte first = inFile.get();
-    byte second = inFile.get();
+    first = inFile.get();
+    second = inFile.get();
     while (header->valid) {
         if (!inFile) {
             std::cout << "Error - file ended prematurely --" << filename << "--\n";
-            header->valid;
+            header->valid = false;
             inFile.close();
             return header;
         }
         if (first != 0xFF) {
             std::cout << "Error - Marker was expected --" << filename << "--\n";
-            header->valid;
+            header->valid = false;
             inFile.close();
             return header;
         }
+
+        if (APP0 <= second && second <= APP15) {
+            readAPPN(inFile, header);
+            break;
+        }
+
+        first = inFile.get();
+        second = inFile.get();
     }
 
     return header;
