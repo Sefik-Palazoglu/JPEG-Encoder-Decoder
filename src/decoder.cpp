@@ -565,6 +565,10 @@ Header* readJPG(const std::string& filename)
     return header;
 }
 
+MCU* blackbox(const Header* const header) {
+
+}
+
 int main(int argc, char** argv) 
 {
     if (argc < 2) {
@@ -587,6 +591,11 @@ int main(int argc, char** argv)
         printHeader(header);
 
         // TODO: Decode Huffman Encoded Bitstream
+        MCU* mcus = blackbox(header);
+        if (mcus == nullptr) {
+            delete header;
+            continue;
+        }
 
         delete header;
     }
