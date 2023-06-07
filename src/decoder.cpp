@@ -565,6 +565,38 @@ Header* readJPG(const std::string& filename)
     return header;
 }
 
+void generateCodes(HuffmanTable& hTable) {
+    uint code = 0;
+    // i is current code length - 1
+    for (uint i = 0; i < 16; i++) {
+        for (uint j = hTable.offsets[i]; j < hTable.offsets[i + 1]; j++) {
+            hTable.codes[j] = code;
+            code += 1;
+        }
+        // append a 0 to right end of the code candidate.
+        code <<= 1;
+    }
+}
+
+MCU* decodeHuffmanData(Header* const header) {
+    const int mcuHeight = (header->height + 7) / 8;
+    const int mcuWidth = (header->width + 7) / 8;
+    MCU* mcus = new (std::nothrow) MCU[mcuHeight * mcuWidth];
+    if (mcus == nullptr) {
+        std::cout << "Error - memory error.\n";
+        return nullptr;
+    }
+
+    // generate codes for huffman tables
+    for (int i = 0; i < 4; i++) {
+        if (header->huffmanDCTables[i].set) {
+            generateCodes(header->huffmanDCTables[i]);
+        }
+    }
+
+    return mcus;
+}
+
 // little endian
 void putInt(std::ofstream& outFile, const int v) {
     outFile.put((v >> 0) & 0xFF);
@@ -647,7 +679,7 @@ int main(int argc, char** argv)
         printHeader(header);
 
         // TODO: Decode Huffman Encoded Bitstream
-        MCU* mcus = blackbox(header);
+        MCU* mcus = decodeHuffmanData(header);
         if (mcus == nullptr) {
             delete header;
             continue;
