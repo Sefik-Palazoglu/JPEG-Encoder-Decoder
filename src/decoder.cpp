@@ -565,10 +565,6 @@ Header* readJPG(const std::string& filename)
     return header;
 }
 
-MCU* blackbox(const Header* const header) {
-
-}
-
 // little endian
 void putInt(std::ofstream& outFile, const int v) {
     outFile.put((v >> 0) & 0xFF);
