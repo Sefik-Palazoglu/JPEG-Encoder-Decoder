@@ -597,6 +597,12 @@ int main(int argc, char** argv)
             continue;
         }
 
+        // write the BMP file
+        const std::size_t pos = filename.find_last_of('.');
+        const std::string outFilename = (pos == std::string::npos) ? (filename + ".bmp") : (filename.substr(0, pos) + ".bmp");
+        
+
+        delete[] mcus;
         delete header;
     }
     return 0;
