@@ -3,6 +3,79 @@
 
 #include "jpg.h"
 
+void readStartOfScan(std::ifstream& inFile, Header* header) {
+    std::cout << "Reading SOS marker\n";
+    if (header->numOfComponents == 0) {
+        std::cout << "Error - SOS detected before SOF\n";
+        header->valid = false;
+        return;
+    }
+
+    uint length = ((inFile.get() << 8) + inFile.get());
+
+    // recall that reading start of frame we set all of the used flags on our color components to true 
+    // to keep track of which color components we successfully read the quantization table id for
+    // we want to use that used flag the same way here when reading the huffman table ids but before
+    // we do that we have to set all of the used flags back to false
+    for (int i = 0; i < header->numOfComponents; i++) {
+        header->colorComponents[i].used = false;
+    }
+
+    byte numComponents = inFile.get();
+    for (int i = 0; i < numComponents; i++) {
+        byte componentID = inFile.get();
+        if (header->zeroBased) {
+            componentID += 1;
+        }
+
+        // color components are from 1 to 3 but our indexes are 0 to 2
+        ColorComponent* component = &header->colorComponents[componentID - 1];
+        if (component->used) {
+            std::cout << "Error - Duplicate Color Component ID\n";
+            header->valid = false;
+            return;
+        }
+        component->used = true;
+
+        byte huffmanTableIDs = inFile.get();
+        std::cout << "xdd-- component: " << (uint)componentID << " huffmanTableIDs: " << std::hex << (uint)huffmanTableIDs << std::dec << "\n";
+        component->huffmanDCTableID = (huffmanTableIDs >> 4);
+        component->huffmanACTableID = (huffmanTableIDs & 0x0F);
+        std::cout << "xdd-- component: " << (uint)componentID << " huffmanTableIDs: " << std::hex << (uint)component->huffmanDCTableID << std::dec << "\n";
+        std::cout << "xdd-- component: " << (uint)componentID << " huffmanTableIDs: " << std::hex << (uint)component->huffmanACTableID << std::dec << "\n";
+        
+        if (component->huffmanACTableID > 3 || component->huffmanDCTableID > 3) {
+            std::cout << "Error - Invalit Huffman DC or AC TableID\n";
+            header->valid = false;
+            return;
+        }
+    }
+    header->startOfSelection = inFile.get();
+    header->endOfSelection = inFile.get();
+    byte successiveApproximation = inFile.get();
+    header->successiveApproximationHigh = successiveApproximation >> 4;
+    header->successiveApproximationLow = (successiveApproximation & 4);
+
+    // Baseline JPGs do not use spectral selection of successive approximation
+    if (header->startOfSelection != 0 || header->endOfSelection != 63) {
+        std::cout << "Error - Invalid spectral selection for baseline jpeg\n";
+        header->valid = false;
+        return;
+    }
+
+    if (header->successiveApproximationHigh != 0 || header->successiveApproximationLow != 0) {
+        std::cout << "Error - Invalid successive approximation fo r baseline jpeg\n";
+        header->valid = false;
+        return;
+    }
+
+    if (length - 6 - (2 * numComponents) != 0) {
+        std::cout << "Error - Invalid SOS Marker\n";
+        header->valid = false;
+        return;
+    }
+}
+
 void readStartOfFrame(std::ifstream& inFile, Header* header) {
     std::cout << "Reading SOF marker\n";
     if (header->numOfComponents != 0) {
@@ -281,6 +354,21 @@ void printHeader(const Header* const header) {
         }
     }
 
+    std::cout << "SOS==========================\n";
+    std::cout << "Start of Selection: " << (uint)header->startOfSelection << "\n";
+    std::cout << "End of Selection: " << (uint)header->endOfSelection << "\n";
+    std::cout << "Successive Approximation High: " << (uint)header->successiveApproximationHigh << "\n";
+    std::cout << "Successive Approximation Low: " << (uint)header->successiveApproximationLow << "\n";
+    std::cout << "Color Components: \n";
+    for (int i = 0; i < header->numOfComponents; i++) {
+        // color component ids are from 1 to 3.
+        std::cout << "Component id: " << (i + 1) << "\n";
+        std::cout << "Huffman DC TableID: " << (uint)header->colorComponents[i].huffmanDCTableID << "\n";
+        std::cout << "Huffman AC TableID: " << (uint)header->colorComponents[i].huffmanACTableID << "\n";
+    }
+
+    std::cout << "Length of the huffman data: " << header->huffmanData.size() << "\n";
+    std::cout << "DRI==============================\n";
     std::cout << "Restart Interval: " << (uint)header->restartInterval << "\n";
 }
 
@@ -327,15 +415,13 @@ Header* readJPG(const std::string& filename)
             inFile.close();
             return header;
         }
-        if (huffmanTablesRead == 4) {
-            break;
-        }
 
-        if (second == DHT) {
+        if (second == SOS) {
+            readStartOfScan(inFile, header);
+            break;
+        } else if (second == DHT) {
             readHuffmanTable(inFile, header);
-            huffmanTablesRead++;
-        }
-        else if (second == SOF0) {
+        } else if (second == SOF0) {
             header->frameType = SOF0;
             readStartOfFrame(inFile, header);
         } else if (second == COM) {
@@ -347,11 +433,135 @@ Header* readJPG(const std::string& filename)
         } else if (APP0 <= second && second <= APP15) {
             readAPPN(inFile, header);
         }
+        // unused markers that can be skipped
+        else if ((second >= JPG0 && second <= JPG13) || second == DNL || second == DHP ||
+                second == EXP) {
+            readComment(inFile, header);
+        }
+        else if (second == TEM) {
+            // TEM has no size
+        }
+        // any number of 0xFF in a row are allowed and should be skipped
+        else if (second == 0xFF) {
+            second = inFile.get();
+            continue;
+        }
+        else if (second == SOI) {
+            std::cout << "Error - Start of Image not supported\n";
+            header->valid = false;
+            inFile.close();
+            return header;
+        }
+        else if (second == EOI) {
+            std::cout << "Error - EOI encountered before SOS\n";
+            header->valid = false;
+            inFile.close();
+            return header;
+        }
+        else if (second == DAC) {
+            std::cout << "Error - Arithmetic encoding not supported\n";
+            header->valid = false;
+            inFile.close();
+            return header;
+        }
+        else if (second >= SOF1 && second <= SOF15) {
+            std::cout << "Error - Given SOF not supported SOF 0x" << std::hex << (uint)second << std::dec << '\n';
+            header->valid = false;
+            inFile.close();
+            return header;
+        }
+        else {
+            std::cout << "Error - Unknown marker 0x" << std::hex << (uint)second << std::dec << '\n';
+            header->valid = false;
+            inFile.close();
+            return header;
+
+        }
 
         first = inFile.get();
         second = inFile.get();
     }
 
+    // After Start of Scan (SOS)
+
+    if (header->valid) {
+        second = inFile.get();
+
+        while (true) {
+            if (!inFile) {
+                std::cout << "Error - File ended prematurely\n";
+                header->valid = false;
+                inFile.close();
+                return header;
+            }
+            first = second;
+            second = inFile.get();
+
+            // if marker is found
+            if (first == 0xFF) {
+                // end of image
+                if (second == EOI) {
+                    break;
+                }
+                // actual 0xFF value to be stored
+                else if (second == 0x00) {
+                    header->huffmanData.push_back(first);
+                    // overwrite 0x00 with next byte
+                    second = inFile.get();
+                }
+                // restart marker
+                else if (RST0 <= second && second <= RST7) {
+                    // overwrite marker with next byte
+                    second = inFile.get();
+                }
+                //ignore multiple FFs in a row
+                else if (second == 0xFF) {
+                    // do nothing
+                    continue;
+                }
+                else {
+                    std::cout << "Error - invalid marker during compressed data scan 0x" << std::hex << (uint)second << std::dec << '\n';
+                    header->valid = false;
+                    inFile.close();
+                    return header;
+                }
+            } else {    // if first != 0xFF
+                // just store the data
+                header->huffmanData.push_back(first);
+            }
+        }
+    }
+
+    // validate header info
+    if (header->numOfComponents != 0 && header->numOfComponents != 3) {
+        std::cout << "Error - " << (uint)header->numOfComponents << " color components given (1 or 3 required)\n";
+        header->valid = false;
+        inFile.close();
+        return header;
+    }
+
+    for (int i = 0; i < header->numOfComponents; i++) {
+        if (header->quantizationTables[header->colorComponents[i].quantizationTableID].set == false) {
+            std::cout << "Error - Color component using uninitialized quantization table";
+            header->valid = false;
+            inFile.close();
+            return header;
+        }
+        if (header->huffmanDCTables[header->colorComponents[i].huffmanDCTableID].set == false) {
+            std::cout << "Error - Color component using uninitialized huffman DC table";
+            header->valid = false;
+            inFile.close();
+            return header;
+        }
+        if (header->huffmanACTables[header->colorComponents[i].huffmanACTableID].set == false) {
+            std::cout << "Error - Color component using uninitialized huffman AC table";
+            header->valid = false;
+            inFile.close();
+            return header;
+        }
+    }
+
+    inFile.close();
     return header;
 }
 
