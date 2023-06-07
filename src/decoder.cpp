@@ -569,6 +569,7 @@ MCU* blackbox(const Header* const header) {
 
 }
 
+// little endian
 void putInt(std::ofstream& outFile, const int v) {
     outFile.put((v >> 0) & 0xFF);
     outFile.put((v >> 8) & 0xFF);
@@ -576,6 +577,7 @@ void putInt(std::ofstream& outFile, const int v) {
     outFile.put((v >> 24) & 0xFF);
 }
 
+// little endian
 void putShort(std::ofstream& outFile, const int v) {
     outFile.put((v >> 0) & 0xFF);
     outFile.put((v >> 8) & 0xFF);
@@ -596,8 +598,35 @@ void writeBMP(const Header* const header, const MCU* const mcus, const std::stri
 
     outFile.put('B');
     outFile.put('M');
-    outFile.put('M');
 
+    putInt(outFile, size);
+    putInt(outFile, 0);
+    putInt(outFile, 0x1A);
+
+    putInt(outFile, 12);
+    putShort(outFile, header->width);
+    putShort(outFile, header->height);
+    putShort(outFile, 1);   // planes
+    putShort(outFile, 24);  // bits per pixel
+
+    for (int y = header->height - 1; y >= 0; y--) {
+        const int mcuRow = y / 8;
+        const int pixelRow = y % 8;
+        for (int x = 0; x < header->height; x++) {
+            const int mcuCol = x / 8;
+            const int pixelCol = x % 8;
+            const int mcuIndex = mcuRow * mcuWidth + mcuCol; 
+            const int pixelIndex = pixelRow * 8 + pixelCol; 
+            outFile.put(mcus[mcuIndex].b[pixelIndex]);
+            outFile.put(mcus[mcuIndex].g[pixelIndex]);
+            outFile.put(mcus[mcuIndex].r[pixelIndex]);
+        }
+        for (int i = 0; i < paddingSize; i++) {
+            outFile.put(0);
+        }
+    }
+
+    outFile.close();
 }
 
 int main(int argc, char** argv) 
