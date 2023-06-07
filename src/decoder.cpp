@@ -569,6 +569,18 @@ MCU* blackbox(const Header* const header) {
 
 }
 
+void putInt(std::ofstream& outFile, const int v) {
+    outFile.put((v >> 0) & 0xFF);
+    outFile.put((v >> 8) & 0xFF);
+    outFile.put((v >> 16) & 0xFF);
+    outFile.put((v >> 24) & 0xFF);
+}
+
+void putShort(std::ofstream& outFile, const int v) {
+    outFile.put((v >> 0) & 0xFF);
+    outFile.put((v >> 8) & 0xFF);
+}
+
 void writeBMP(const Header* const header, const MCU* const mcus, const std::string& filename) {
     // open file
     std::ofstream outFile = std::ofstream(filename, std::ios::out | std::ios::binary);
@@ -581,6 +593,10 @@ void writeBMP(const Header* const header, const MCU* const mcus, const std::stri
     const int mcuWidth = (header->width + 7) / 8;
     const int paddingSize = header->width % 4;
     const int size = 12 + 14 + (header->height * header->width) * 3 + paddingSize * header->height;
+
+    outFile.put('B');
+    outFile.put('M');
+    outFile.put('M');
 
 }
 
