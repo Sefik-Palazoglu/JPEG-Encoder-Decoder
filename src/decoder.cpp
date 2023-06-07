@@ -569,6 +569,21 @@ MCU* blackbox(const Header* const header) {
 
 }
 
+void writeBMP(const Header* const header, const MCU* const mcus, const std::string& filename) {
+    // open file
+    std::ofstream outFile = std::ofstream(filename, std::ios::out | std::ios::binary);
+    if (!outFile.is_open()) {
+        std::cout << "Output file couldn't be opened\n";
+        return;
+    }
+
+    const int mcuHeight = (header->height + 7) / 8;
+    const int mcuWidth = (header->width + 7) / 8;
+    const int paddingSize = header->width % 4;
+    const int size = 12 + 14 + (header->height * header->width) * 3 + paddingSize * header->height;
+
+}
+
 int main(int argc, char** argv) 
 {
     if (argc < 2) {
@@ -600,7 +615,9 @@ int main(int argc, char** argv)
         // write the BMP file
         const std::size_t pos = filename.find_last_of('.');
         const std::string outFilename = (pos == std::string::npos) ? (filename + ".bmp") : (filename.substr(0, pos) + ".bmp");
-        
+
+        writeBMP(header, mcus, outFilename);
+
 
         delete[] mcus;
         delete header;
